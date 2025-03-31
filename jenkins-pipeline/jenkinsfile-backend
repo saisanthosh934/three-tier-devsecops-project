@@ -47,37 +47,40 @@ pipeline {
        
         stage("Docker Image Build") {
             steps {
-                script {
-                    dir('app-code/backend') {
-                            sh 'docker system prune -f'
-                            sh 'docker container prune -f'
-                            sh 'docker build -t ${AWS_ECR_REPO_NAME} .'
-                    }
+            script {
+                dir('app-code/backend') {
+                sh 'docker system prune -f'
+                sh 'docker container prune -f'
+                sh 'docker build -t ${AWS_ECR_REPO_NAME} .'
                 }
+            }
             }
         }
         stage("ECR Image Pushing") {
             steps {
             script {
-                withAWS(region: 'ap-south-1', credentials: 'deloitte-user') {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'deloitte-user']]) {
+                withCredentials([
+                usernamePassword(
+                    credentialsId: 'deloitte-user',
+                    passwordVariable: 'AWS_SECRET_ACCESS_KEY',
+                    usernameVariable: 'AWS_ACCESS_KEY_ID'
+                )
+                ]) {
+                withEnv([
+                    "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}",
+                    "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}",
+                    "AWS_DEFAULT_REGION=ap-south-1"
+                ]) {
                     sh '''
-                    export AWS_DEFAULT_REGION=ap-south-1
-                    export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-                    export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-                    aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${REPOSITORY_URI}
+                    aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${REPOSITORY_URI}
+                    docker tag ${AWS_ECR_REPO_NAME} ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}
+                    docker push ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}
                     '''
                 }
-                }
-                    '''
-                }
-                sh 'docker tag ${AWS_ECR_REPO_NAME} ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}'
-                sh 'docker push ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}'
                 }
             }
             }
         }
-
         stage('Checkout Code') {
             steps {
                 git branch: 'main', credentialsId: 'GITHUB', url: 'https://github.com/saisanthosh934/three-tier-devsecops-project.git'
