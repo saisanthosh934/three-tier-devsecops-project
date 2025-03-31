@@ -1,11 +1,11 @@
 pipeline {
-    agent any 
+    agent any
     tools {
         jdk 'jdk'
         nodejs 'nodejs'
     }
     environment  {
-        SCANNER_HOME=tool 'sonar-scanner'
+        SCANNER_HOME = tool 'sonar-scanner'
         AWS_ACCOUNT_ID = credentials('ACCOUNT_ID')
         AWS_ECR_REPO_NAME = credentials('ECR_REPO_BACKEND')
         AWS_DEFAULT_REGION = 'us-east-1'
@@ -26,7 +26,7 @@ pipeline {
             steps {
                 dir('app-code/backend') {
                     withSonarQubeEnv('sonar-server') {
-                        sh ''' 
+                        sh '''
                             $SCANNER_HOME/bin/sonar-scanner \
                             -Dsonar.projectKey=backend \
                             -Dsonar.sources=. \
@@ -40,45 +40,41 @@ pipeline {
         stage('Quality Check') {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token' 
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
                 }
             }
         }
-       
-        stage("Docker Image Build") {
+
+        stage('Docker Image Build') {
             steps {
-            script {
-                dir('app-code/backend') {
-                sh 'docker system prune -f'
-                sh 'docker container prune -f'
-                sh 'docker build -t ${AWS_ECR_REPO_NAME} .'
+                script {
+                    dir('app-code/backend') {
+                        sh 'docker system prune -f'
+                        sh 'docker container prune -f'
+                        sh 'docker build -t ${AWS_ECR_REPO_NAME} .'
+                    }
                 }
             }
-            }
         }
-        stage("ECR Image Pushing") {
+        stage('ECR Image Pushing') {
             steps {
-            script {
-                withCredentials([
+                script {
+                    withCredentials([
                 usernamePassword(
                     credentialsId: 'deloitte-user',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID'
+                    usernameVariable: 'AWS_ACCESS_KEY_ID',
+                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                 )
                 ]) {
-                withEnv([
-                    "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}",
-                    "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}",
-                    "AWS_DEFAULT_REGION=ap-south-1"
-                ]) {
-                    sh '''
+                        sh '''
+                    export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                    export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
                     aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${REPOSITORY_URI}
-                    docker tag ${AWS_ECR_REPO_NAME} ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}
-                    docker push ${REPOSITORY_URI}${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}
-                    '''
+                    docker tag ${IMAGE_NAME} ${REPOSITORY_URI}:${BUILD_NUMBER}
+                    docker push ${REPOSITORY_URI}:${BUILD_NUMBER}
+                '''
                 }
                 }
-            }
             }
         }
         stage('Checkout Code') {
@@ -88,8 +84,8 @@ pipeline {
         }
         stage('Update Deployment file') {
             environment {
-                GIT_REPO_NAME = "three-tier-devsecops-project"
-                GIT_USER_NAME = "saisanthosh934"
+                GIT_REPO_NAME = 'three-tier-devsecops-project'
+                GIT_USER_NAME = 'saisanthosh934'
             }
             steps {
                 dir('kubernetes-manifests/backend') {
