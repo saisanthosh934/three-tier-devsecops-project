@@ -25,7 +25,7 @@ spec:
       - name: ecr-registry-secret
       containers:
       - name: api
-        image: 167365792572.dkr.ecr.us-west-2.amazonaws.com/backend:1
+        image: 039612844346.dkr.ecr.us-west-2.amazonaws.com/backend:1
         imagePullPolicy: Always
         env:
           - name: POSTGRES_CONN_STR
@@ -44,6 +44,13 @@ spec:
             value: mydatabase
         ports:
         - containerPort: 8000
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
         livenessProbe: 
           httpGet:
             path: /api
